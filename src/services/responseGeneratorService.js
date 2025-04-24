@@ -57,6 +57,92 @@ class ResponseGeneratorService {
   }
 
   /**
+   * Generate a response to an email with custom instructions and apply user's style
+   * @param {number} userId - User ID
+   * @param {string} emailContent - Content of the email to respond to
+   * @param {string} instructions - Custom instructions for reply generation
+   * @returns {Promise<Object>} - Generated response and confidence score
+   */
+  async generateInstructedResponse(userId, emailContent, instructions) {
+    try {
+      // Get or create the user's style profile
+      let styleProfile = await getStyleProfile(userId);
+      if (!styleProfile) {
+        styleProfile = await styleAnalyzerService.analyzeUserStyle(userId);
+      }
+
+      // Generate base response with LLM using custom instructions
+      const customPrompt = this.createInstructedPrompt(
+        emailContent,
+        instructions
+      );
+      const baseResponse = await this.generateWithOllama(customPrompt);
+
+      // Apply user's style to the response
+      const styledResponse = await this.applyUserStyle(
+        baseResponse,
+        styleProfile
+      );
+
+      // Calculate confidence score
+      const confidenceScore = await this.calculateConfidenceScore(
+        emailContent,
+        styledResponse,
+        baseResponse
+      );
+
+      return {
+        response: styledResponse,
+        confidence: confidenceScore,
+        raw_llm_response: baseResponse,
+      };
+    } catch (error) {
+      console.error("Instructed response generation error:", error);
+      throw new Error(
+        `Failed to generate instructed response: ${error.message}`
+      );
+    }
+  }
+
+  /**
+   * Create a prompt that incorporates custom instructions
+   * @param {string} emailContent - Original email content
+   * @param {string} instructions - Custom instructions for response generation
+   * @returns {string} - Complete prompt for LLM
+   */
+  createInstructedPrompt(emailContent, instructions) {
+    // Try to extract key information from the email
+    const emailLines = emailContent.split("\n");
+    let cleanedContent = emailContent;
+
+    // Try to remove quoted content (common in replies)
+    if (emailContent.includes(">")) {
+      const nonQuotedLines = emailLines.filter(
+        (line) => !line.trim().startsWith(">")
+      );
+      if (nonQuotedLines.length > 0) {
+        cleanedContent = nonQuotedLines.join("\n");
+      }
+    }
+
+    // Create a custom prompt with the user's instructions
+    return `You are an AI email assistant. Your task is to write a response to the following email according to these specific instructions:
+
+INSTRUCTIONS FROM USER:
+${instructions}
+
+EMAIL TO REPLY TO:
+${cleanedContent}
+
+Follow the user's instructions carefully to craft the email reply. The tone, style, and content should match what was requested in the instructions.
+Make sure the response addresses the key points in the original email.
+Don't include any salutations or signatures, as they will be added later.
+Your response should be 2-4 paragraphs long.
+
+EMAIL RESPONSE:`;
+  }
+
+  /**
    * Generate base response using Ollama with Llama 3.1 model
    * @param {string} emailContent - Content of the email to respond to
    * @returns {Promise<string>} - Generated response
