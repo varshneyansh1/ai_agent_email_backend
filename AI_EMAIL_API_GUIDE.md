@@ -20,6 +20,7 @@ This guide provides details on how to use the AI Email system API, including the
 - `POST /ai/generate-response` - Generate an AI response to email content
 - `POST /ai/intelligent-reply` - Generate an intelligent reply to an email (improved)
 - `POST /ai/reply-to-sequence` - One-step endpoint to fetch an email by sequence number and generate a reply
+- `POST /ai/generate-voice-reply` - Generate a reply based on custom voice instructions in any language
 - `POST /ai/analyze-style` - Analyze a user's writing style
 - `GET /ai/style-profile/:userId` - Get a user's style profile
 
@@ -159,6 +160,73 @@ Content-Type: application/json
   "inReplyTo": "original-message-id" // Optional, for email threading
 }
 ```
+
+## Generating Voice-Instructed Replies
+
+The system now supports generating email replies based on voice instructions in any language. This feature allows users to provide specific instructions about how they want the reply to be composed, including tone, content, and specific information to include.
+
+### Voice Reply Workflow
+
+Use the `/ai/generate-voice-reply` endpoint to generate a reply based on voice instructions, similar to how you'd use the `/ai/reply-to-sequence` endpoint:
+
+```http
+POST http://localhost:5000/ai/generate-voice-reply
+Content-Type: application/json
+
+{
+  "seqno": 42,
+  "instructions": "iss email ka jawab casual tone mai doh aur reply ke content mai include karo ki I want this project to be completed by end of month",
+  "userId": 1,
+  "email": "your-email@gmail.com"  // Optional, defaults to EMAIL_USER from .env
+}
+```
+
+This endpoint:
+
+1. Fetches the email with the specified sequence number from your inbox
+2. Detects the language of the instructions (works with Hindi, English, or any other language)
+3. Translates instructions to English if they're in another language
+4. Generates a customized response following the specified instructions
+5. Applies the user's writing style to maintain consistency
+6. Automatically saves the email to the database for future reference
+7. Returns a complete reply package ready to be sent
+
+**Response:**
+
+```json
+{
+  "message": "Voice-instructed reply generated successfully",
+  "reply": {
+    "to": "sender@example.com",
+    "subject": "Re: Project Discussion",
+    "body": "Generated response following instructions...",
+    "inReplyTo": "original-message-id",
+    "messageSeqNo": 42,
+    "databaseId": 123,
+    "confidence": 0.85,
+    "originalContent": "Original email content...",
+    "instructionsLanguage": "hi",
+    "wasTranslated": true
+  }
+}
+```
+
+### Example: Responding with Custom Instructions
+
+For example, if you want to reply to an email about a project timeline with specific details:
+
+```http
+POST http://localhost:5000/ai/generate-voice-reply
+Content-Type: application/json
+
+{
+  "seqno": 35,
+  "instructions": "Reply in a professional tone. Mention that I am available on Tuesday and Thursday afternoon. Also mention that I want to complete the project by end of month.",
+  "userId": 1
+}
+```
+
+For more details about the voice reply API, refer to the [Voice Reply API Documentation](docs/voice-reply-api.md).
 
 ## Example: Complete Workflow with the Amazon Job Application Email
 

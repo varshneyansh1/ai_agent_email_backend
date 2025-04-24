@@ -3,6 +3,7 @@ import responseGeneratorService from "../services/responseGeneratorService.js";
 import styleAnalyzerService from "../services/styleAnalyzerService.js";
 import { getStyleProfile } from "../models/userStyleProfileModel.js";
 import { getEmailsByUser, saveEmail } from "../models/emailModel.js";
+import voiceReplyService from "../services/voiceReplyService.js";
 
 const router = express.Router();
 
@@ -375,6 +376,145 @@ router.post("/reply-to-sequence", async (req, res) => {
     });
   } catch (error) {
     console.error("Error generating reply to sequence:", error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * Generate a voice-instructed reply to an email
+ * POST /ai/generate-voice-reply
+ * Accepts email content, user instructions in any language, and user ID
+ * Translates instructions if needed and generates a reply following those instructions
+ */
+// This endpoint is replaced by the new version below that uses seqno
+
+/**
+ * Voice Reply to Email by Sequence Number - One-step endpoint that fetches an email by sequence number
+ * and generates a reply based on voice instructions in any language
+ * POST /ai/generate-voice-reply
+ * Accepts seqno (sequence number) from IMAP, instructions in any language, and user ID
+ */
+router.post("/generate-voice-reply", async (req, res) => {
+  try {
+    const {
+      seqno,
+      instructions,
+      userId,
+      email: userEmail,
+      limit = 50,
+    } = req.body;
+
+    // Validate required fields
+    if (!seqno) {
+      return res
+        .status(400)
+        .json({ error: "Email sequence number (seqno) is required" });
+    }
+
+    if (!instructions) {
+      return res.status(400).json({ error: "Instructions are required" });
+    }
+
+    // Convert seqno to integer if it's a string
+    const seqnoInt = parseInt(seqno, 10);
+    if (isNaN(seqnoInt)) {
+      return res
+        .status(400)
+        .json({ error: "Sequence number must be a valid integer" });
+    }
+
+    // Default to user ID 1 if not provided (for testing)
+    const userIdToUse = userId || 1;
+    const emailToUse = userEmail || process.env.EMAIL_USER;
+
+    // Step 1: Fetch emails from inbox to find the target email
+    console.log(
+      `Fetching inbox for ${emailToUse} to find email with seqno ${seqnoInt}`
+    );
+
+    // Import the emailService dynamically to avoid circular dependencies
+    const emailService = (await import("../services/emailService.js")).default;
+
+    // Fetch a larger set of emails to ensure we find the one with the specified seqno
+    const emails = await emailService.getInbox(
+      emailToUse,
+      "dummy-token",
+      limit
+    );
+    console.log(`Successfully fetched ${emails.length} emails from inbox`);
+
+    // Find the email with the matching sequence number
+    const targetEmail = emails.find((email) => email.seqno === seqnoInt);
+
+    if (!targetEmail) {
+      return res.status(404).json({
+        error: `Email with sequence number ${seqnoInt} not found in the most recent ${limit} emails`,
+      });
+    }
+
+    console.log(`Found email with seqno ${seqnoInt}:`);
+    console.log(`- From: ${targetEmail.from}`);
+    console.log(`- Subject: ${targetEmail.subject}`);
+    console.log(`- Date: ${targetEmail.date}`);
+
+    // Extract email content and metadata
+    const emailContent = targetEmail.body;
+    const originalSender = targetEmail.from;
+    const originalSubject = targetEmail.subject;
+    const originalDate = targetEmail.date;
+
+    // Prepare reply subject (add Re: if not already present)
+    const replySubject = originalSubject.startsWith("Re:")
+      ? originalSubject
+      : `Re: ${originalSubject}`;
+
+    // Generate the voice-instructed response
+    const voiceReply = await voiceReplyService.generateVoiceReply(
+      userIdToUse,
+      emailContent,
+      instructions
+    );
+
+    // Optionally save the email to database for future reference
+    let savedEmailId = null;
+    try {
+      const savedEmail = await saveEmail(
+        userIdToUse,
+        originalSender,
+        originalSubject,
+        emailContent,
+        new Date(originalDate || Date.now())
+      );
+      savedEmailId = savedEmail.id;
+      console.log(
+        `Email automatically saved to database with ID: ${savedEmailId}`
+      );
+    } catch (saveError) {
+      console.warn(`Could not save email to database: ${saveError.message}`);
+      // Continue even if save fails
+    }
+
+    // Return complete response with metadata for the frontend to use
+    res.json({
+      message: "Voice-instructed reply generated successfully",
+      reply: {
+        to: originalSender,
+        subject: replySubject,
+        body: voiceReply.response,
+        inReplyTo: targetEmail.id, // Use original message ID for threading
+        messageSeqNo: seqnoInt,
+        databaseId: savedEmailId,
+        confidence: voiceReply.confidence,
+        originalContent: emailContent,
+        instructionsLanguage: voiceReply.originalLanguage,
+        wasTranslated: voiceReply.translatedInstructions !== null,
+      },
+    });
+  } catch (error) {
+    console.error("Error generating voice-instructed reply:", error);
     res.status(500).json({
       error: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
