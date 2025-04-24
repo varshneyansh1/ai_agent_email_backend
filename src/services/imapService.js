@@ -197,10 +197,18 @@ function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
     return resolve([]);
   }
 
-  // Calculate start message (total - limit or 1 if total < limit)
-  const start = box.messages.total > limit ? box.messages.total - limit + 1 : 1;
+  // Fetch more emails than requested to ensure we get the most recent ones after sorting
+  // Use a multiplier to fetch more messages than the limit
+  const fetchMultiplier = 3;
+  const fetchLimit = Math.min(limit * fetchMultiplier, box.messages.total);
+
+  // Calculate start message (total - fetchLimit or 1 if total < fetchLimit)
+  const start =
+    box.messages.total > fetchLimit ? box.messages.total - fetchLimit + 1 : 1;
   const range = `${start}:${box.messages.total}`;
-  console.log(`Fetching email range: ${range}`);
+  console.log(
+    `Fetching email range: ${range} (${fetchLimit} emails to ensure getting the most recent ${limit})`
+  );
 
   const fetchOptions = {
     bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
@@ -277,9 +285,24 @@ function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
     fetch.once("end", () => {
       console.log("Fetch completed");
       imap.end();
+
+      // Log message to help with debugging
+      console.log(`Fetched ${emails.length} emails, sorting by date...`);
+
       // Sort emails by date (newest first)
-      emails.sort((a, b) => (b.date || 0) - (a.date || 0));
-      resolve(emails);
+      emails.sort((a, b) => {
+        const dateA = a.date ? a.date.getTime() : 0;
+        const dateB = b.date ? b.date.getTime() : 0;
+        return dateB - dateA;
+      });
+
+      // Return only the requested number of emails after sorting
+      const limitedEmails = emails.slice(0, limit);
+      console.log(
+        `Returning the ${limitedEmails.length} most recent emails by date`
+      );
+
+      resolve(limitedEmails);
     });
   } catch (err) {
     console.error("Fetch setup error:", err);

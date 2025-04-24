@@ -4,6 +4,7 @@ import session from "express-session";
 import passport from "./config/auth.js";
 import authRoutes from "./routes/authRoutes.js";
 import emailRoutes from "./routes/emailRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -32,6 +33,7 @@ app.use(passport.session());
 // Register routes
 app.use("/auth", authRoutes); // Authentication routes
 app.use("/email", emailRoutes); // Email-related routes
+app.use("/ai", aiRoutes); // AI-related routes
 
 // Basic route for testing
 app.get("/", (req, res) => {

@@ -285,6 +285,35 @@ class EmailService {
       imap.connect();
     });
   }
+
+  /**
+   * Fetch sent emails for style analysis
+   * @param {number} userId - User ID
+   * @param {number} limit - Maximum number of emails to fetch
+   * @returns {Promise<Array>} - Array of sent email objects
+   */
+  async getSentEmailsForStyleAnalysis(userId, limit = 20) {
+    try {
+      // In a production environment, you would fetch from "[Gmail]/Sent Mail" folder
+      // For this demo, we'll use the emails stored in the database
+
+      // 1. Try to get emails from database first (faster)
+      const savedEmails = await getEmailsByUser(userId);
+
+      // 2. For a real implementation, you would also fetch emails from the sent folder
+      // This would require:
+      // - Get the user's email from database
+      // - Connect to their email account
+      // - Fetch emails from sent folder
+      // - Combine with saved emails
+
+      // For now, return what we have in the database
+      return savedEmails.slice(0, limit);
+    } catch (error) {
+      console.error("Error fetching sent emails for style analysis:", error);
+      throw new Error(`Failed to fetch sent emails: ${error.message}`);
+    }
+  }
 }
 
 // Export a singleton instance

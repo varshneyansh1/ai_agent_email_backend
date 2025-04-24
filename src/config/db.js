@@ -6,16 +6,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.resolve(__dirname, "../../database.sqlite");
 
 const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error("Error connecting to database:", err.message);
-    } else {
-        console.log("Connected to SQLite database.");
-    }
+  if (err) {
+    console.error("Error connecting to database:", err.message);
+  } else {
+    console.log("Connected to SQLite database.");
+  }
 });
 
 // Create tables
 db.serialize(() => {
-    db.run(`
+  db.run(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
@@ -25,7 +25,7 @@ db.serialize(() => {
         )
     `);
 
-    db.run(`
+  db.run(`
         CREATE TABLE IF NOT EXISTS emails (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -33,6 +33,23 @@ db.serialize(() => {
             subject TEXT,
             body TEXT,
             received_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    `);
+
+  // User style profile table for storing writing style characteristics
+  db.run(`
+        CREATE TABLE IF NOT EXISTS user_style_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE,
+            common_phrases TEXT,
+            tone_score REAL,
+            formality_score REAL,
+            avg_sentence_length REAL,
+            greeting_style TEXT,
+            signature TEXT,
+            style_data TEXT,
+            last_updated DATETIME,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     `);
