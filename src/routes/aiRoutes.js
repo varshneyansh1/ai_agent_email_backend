@@ -4,6 +4,7 @@ import styleAnalyzerService from "../services/styleAnalyzerService.js";
 import { getStyleProfile } from "../models/userStyleProfileModel.js";
 import { getEmailsByUser, saveEmail } from "../models/emailModel.js";
 import voiceReplyService from "../services/voiceReplyService.js";
+import composeEmailService from "../services/composeEmailService.js";
 
 const router = express.Router();
 
@@ -515,6 +516,50 @@ router.post("/generate-voice-reply", async (req, res) => {
     });
   } catch (error) {
     console.error("Error generating voice-instructed reply:", error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * Compose a new email based on user instructions in any language
+ * POST /ai/compose-email
+ * Accepts instructions in any language and user ID
+ * Translates instructions if needed and generates a complete email draft
+ */
+router.post("/compose-email", async (req, res) => {
+  try {
+    const { instructions, userId } = req.body;
+
+    // Validate required fields
+    if (!instructions) {
+      return res.status(400).json({ error: "Instructions are required" });
+    }
+
+    // Default to user ID 1 if not provided (for testing)
+    const userIdToUse = userId || 1;
+
+    // Generate the email draft
+    const emailDraft = await composeEmailService.composeEmail(instructions);
+
+    // Return complete email draft
+    res.json({
+      message: "Email draft generated successfully",
+      draft: {
+        to: emailDraft.to,
+        cc: emailDraft.cc,
+        bcc: emailDraft.bcc,
+        subject: emailDraft.subject,
+        body: emailDraft.body,
+        confidence: emailDraft.confidence,
+        instructionsLanguage: emailDraft.originalLanguage,
+        wasTranslated: emailDraft.translatedInstructions !== null,
+      },
+    });
+  } catch (error) {
+    console.error("Error composing email:", error);
     res.status(500).json({
       error: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
