@@ -10,22 +10,15 @@ dotenv.config();
 // API Keys and Services
 const config = {
   // HuggingFace API Configuration
-  huggingFace: {
-    apiKey: process.env.HUGGINGFACE_API_KEY || "",
-    enabled: process.env.HUGGINGFACE_ENABLED !== "false", // Enabled by default if present
-    defaultModel: "mistralai/Mistral-7B-Instruct-v0.2",
-    embeddingModel: "sentence-transformers/all-MiniLM-L6-v2",
-  },
 
   // Local LLM Configuration
   localLLM: {
     enabled: process.env.LOCAL_LLM_ENABLED === "true", // Disabled by default
     apiUrl: process.env.LLAMA_API_URL || "http://localhost:8080/completion",
-    fallbackToHuggingFace: true, // Auto-fallback to HuggingFace if local fails
     // Ollama specific settings
     ollama: {
       enabled: true,
-      defaultModel: process.env.OLLAMA_MODEL || "llama3", // Use llama3 as default
+      defaultModel: process.env.OLLAMA_MODEL || "llama3.1", // Use llama3 as default
       endpointUrl: "http://localhost:11434/api/generate",
       alternatePorts: [5000, 8000], // Additional ports to try
     },

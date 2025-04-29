@@ -76,6 +76,66 @@ The system now automatically analyzes your writing style by fetching emails from
 
 2. **Send the request** and verify the email was sent successfully
 
+## Compose Email API Testing
+
+**Endpoint:** `POST /ai/compose-email`
+
+This endpoint accepts user instructions (in any language) and generates a complete email draft with appropriate recipients, subject, and body content.
+
+1. Open a new request in Postman
+2. Set the method to `POST`
+3. Enter the URL: `http://localhost:5000/ai/compose-email`
+4. In the "Headers" tab, add:
+   - `Content-Type: application/json`
+5. In the "Body" tab, select "raw" and "JSON", then enter:
+
+```json
+{
+  "instructions": "Write a project status update to the team at dev@company.com. Let them know we've completed the login feature but are still working on the payment integration. We expect to finish by next Friday. Copy the project manager at pm@company.com.",
+  "userId": 1
+}
+```
+
+6. Click "Send" to execute the request
+7. Verify that the response contains:
+   - `message`: "Email draft generated successfully"
+   - `draft` object with:
+     - `to`: Contains "dev@company.com"
+     - `cc`: Contains "pm@company.com"
+     - `subject`: A relevant subject line for a status update
+     - `body`: Email text that mentions login completion, payment integration, and next Friday
+     - `confidence`: A numeric value between 0 and 1
+     - `instructionsLanguage`: "en"
+     - `wasTranslated`: false
+
+**Testing with Non-English Instructions:**
+
+1. Create a new request with the same settings, but use non-English instructions:
+
+```json
+{
+  "instructions": "Schreiben Sie eine Einladung an client@example.com für ein Meeting am Freitag um 14 Uhr. Das Thema ist Produktpräsentation.",
+  "userId": 1
+}
+```
+
+2. Send the request and verify:
+   - Email draft is generated correctly with appropriate recipient, subject, and content
+   - `instructionsLanguage` shows "de" or another detected language
+   - `wasTranslated` is `true` since the instructions were not in English
+
+**Error Testing:**
+
+1. Create a request without instructions:
+
+```json
+{
+  "userId": 1
+}
+```
+
+2. Verify that you receive a 400 error with a message indicating that instructions are required
+
 ## What's Happening Behind the Scenes
 
 When you call the `/ai/intelligent-reply` endpoint, the system:

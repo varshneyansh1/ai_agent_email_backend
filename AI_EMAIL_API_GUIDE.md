@@ -297,3 +297,74 @@ Content-Type: application/json
 ```
 
 This provides a more streamlined experience without requiring multiple API calls.
+
+## API Endpoints
+
+The Email AI Backend provides the following key endpoints:
+
+- `POST /ai/generate-response` - Generate a response to an email with user's style
+- `POST /ai/intelligent-reply` - Full workflow for intelligent email replies
+- `POST /ai/analyze-style` - Analyze a user's writing style from their sent emails
+- `GET /ai/style-profile/:userId` - Get a user's writing style profile
+- `POST /ai/reply-to-sequence` - Reply to an email identified by IMAP sequence number
+- `POST /ai/generate-voice-reply` - Generate a reply based on custom voice instructions in any language
+- `POST /ai/compose-email` - Generate a complete email draft based on user instructions in any language
+
+### Compose Email API
+
+Use the `/ai/compose-email` endpoint to generate a complete email draft based on user instructions:
+
+```
+POST http://localhost:5000/ai/compose-email
+Content-Type: application/json
+
+{
+  "instructions": "Write a follow-up email to Sarah at techworks.com about the project timeline. Explain that we need an additional week for testing and will be able to deliver by October 15. Copy the project manager mike@techworks.com.",
+  "userId": 1
+}
+```
+
+Response:
+
+```json
+{
+  "message": "Email draft generated successfully",
+  "draft": {
+    "to": "sarah@techworks.com",
+    "cc": "mike@techworks.com",
+    "bcc": "",
+    "subject": "Project Timeline Update - Delivery by October 15",
+    "body": "Hi Sarah,\n\nI'm writing to provide an update on our project timeline. After reviewing our testing requirements, we've determined that we need an additional week to ensure the quality of deliverables.\n\nWe are now planning to deliver the completed project by October 15. This extra time will allow us to conduct more thorough testing and ensure that everything meets your requirements. Our team is still fully committed to delivering a high-quality product, and we believe this slight adjustment will result in a better outcome.\n\nPlease let me know if you have any concerns about this updated timeline. I'm happy to discuss any questions you might have.\n\nRegards,",
+    "confidence": 0.86,
+    "instructionsLanguage": "en",
+    "wasTranslated": false
+  }
+}
+```
+
+The API accepts:
+
+- `instructions` (required) - User's instructions in any language for what the email should contain
+- `userId` (optional) - User ID for tracking/future personalization (defaults to 1)
+
+The response includes:
+
+- `draft.to` - Recipient email address(es)
+- `draft.cc` - Carbon copy recipients (if any)
+- `draft.bcc` - Blind carbon copy recipients (if any)
+- `draft.subject` - Generated subject line
+- `draft.body` - Main email content
+- `draft.confidence` - AI confidence score (0-1)
+- `draft.instructionsLanguage` - Detected language of original instructions
+- `draft.wasTranslated` - Whether instructions were translated (true if non-English)
+
+Instructions can be in any language and can include natural language descriptions of:
+
+- Who should receive the email (To/CC/BCC)
+- What the email should be about
+- Specific points to include
+- Tone or style preferences
+- Purpose of the email
+- Any other details needed for drafting
+
+This provides a complete starting point for composing a new email based on informal user instructions.

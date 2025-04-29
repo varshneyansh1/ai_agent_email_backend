@@ -59,13 +59,15 @@ const simplifyMailboxes = (boxes) => {
  * @param {string} accessToken - OAuth2 access token (not used in password auth mode).
  * @param {number} limit - Number of emails to fetch (default 10)
  * @param {string} mailbox - Mailbox to fetch from (default INBOX)
+ * @param {number} page - Page number for pagination (default 1)
  * @returns {Promise<Array>} - Promise that resolves to array of emails
  */
 export const fetchEmails = (
   email,
   accessToken,
   limit = 10,
-  mailbox = "INBOX"
+  mailbox = "INBOX",
+  page = 1
 ) => {
   return new Promise((resolve, reject) => {
     // Map common folder names to Gmail's specific folders
@@ -158,7 +160,15 @@ export const fetchEmails = (
                   );
                 }
 
-                fetchEmailsFromBox(imap, box2, limit, emails, resolve, reject);
+                fetchEmailsFromBox(
+                  imap,
+                  box2,
+                  limit,
+                  emails,
+                  resolve,
+                  reject,
+                  page
+                );
               });
               return;
             }
@@ -169,7 +179,7 @@ export const fetchEmails = (
             );
           }
 
-          fetchEmailsFromBox(imap, box, limit, emails, resolve, reject);
+          fetchEmailsFromBox(imap, box, limit, emails, resolve, reject, page);
         });
       });
     });
@@ -188,7 +198,15 @@ export const fetchEmails = (
 /**
  * Helper function to fetch emails from an open mailbox
  */
-function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
+function fetchEmailsFromBox(
+  imap,
+  box,
+  limit,
+  emails,
+  resolve,
+  reject,
+  page = 1
+) {
   console.log(`Mailbox opened with ${box.messages.total} messages`);
 
   // If no messages, return empty array
@@ -197,42 +215,64 @@ function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
     return resolve([]);
   }
 
-  // Fetch more emails than requested to ensure we get the most recent ones after sorting
-  // Use a multiplier to fetch more messages than the limit
-  const fetchMultiplier = 3;
+  // Calculate pagination parameters
+  const skip = (page - 1) * limit;
+
+  // Fetch slightly more emails than requested to ensure we get enough after filtering
+  const fetchMultiplier = 2;
   const fetchLimit = Math.min(limit * fetchMultiplier, box.messages.total);
 
-  // Calculate start message (total - fetchLimit or 1 if total < fetchLimit)
-  const start =
-    box.messages.total > fetchLimit ? box.messages.total - fetchLimit + 1 : 1;
-  const range = `${start}:${box.messages.total}`;
+  // Calculate the range based on pagination
+  // We fetch from newest to oldest, so need to start from (total - skip - fetchLimit)
+  let start = Math.max(1, box.messages.total - skip - fetchLimit + 1);
+  let end = Math.min(box.messages.total, box.messages.total - skip);
+
+  // Edge case handling
+  if (start > end) {
+    // We're beyond the available messages, return empty array
+    imap.end();
+    return resolve([]);
+  }
+
+  const range = `${start}:${end}`;
   console.log(
-    `Fetching email range: ${range} (${fetchLimit} emails to ensure getting the most recent ${limit})`
+    `Fetching email range: ${range} (page ${page}, limit ${limit}, skip ${skip})`
   );
 
   const fetchOptions = {
-    bodies: ["HEADER.FIELDS (FROM TO SUBJECT DATE)", "TEXT"],
+    bodies: ["HEADER", "TEXT", ""],
     struct: true,
     markSeen: false,
   };
 
   try {
     const fetch = imap.seq.fetch(range, fetchOptions);
+    const emailMap = new Map(); // Use a map to combine parts by sequence number
 
     fetch.on("message", (msg, seqno) => {
-      const email = {
-        seqno,
-        id: null,
-        from: null,
-        to: null,
-        subject: null,
-        date: null,
-        body: null,
-        html: null,
-        attachments: [],
-      };
-
       console.log(`Processing message #${seqno}`);
+
+      // Initialize or get email object from map
+      if (!emailMap.has(seqno)) {
+        emailMap.set(seqno, {
+          seqno,
+          uid: null,
+          messageId: null,
+          from: null,
+          to: null,
+          subject: null,
+          date: null,
+          body: null,
+          snippet: null,
+          html: null,
+          attachments: [],
+          headers: {},
+          internalDate: null,
+          flags: [],
+        });
+      }
+
+      const email = emailMap.get(seqno);
 
       msg.on("body", (stream, info) => {
         let buffer = "";
@@ -242,37 +282,88 @@ function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
         });
 
         stream.once("end", () => {
-          if (info.which.includes("HEADER")) {
+          if (info.which === "HEADER") {
+            // Parse full header
             const header = Imap.parseHeader(buffer);
-            email.from = header.from ? header.from[0] : null;
-            email.to = header.to ? header.to[0] : null;
-            email.subject = header.subject ? header.subject[0] : null;
-            email.date = header.date ? new Date(header.date[0]) : null;
-          } else {
-            // Parse the email body
-            simpleParser(buffer, (err, parsed) => {
-              if (err) {
-                console.error("Error parsing email:", err);
-                return;
-              }
+            email.headers = header;
 
-              email.id = parsed.messageId;
-              email.body = parsed.text;
-              email.html = parsed.html;
+            // Extract common header fields
+            email.from =
+              header.from && header.from[0]
+                ? {
+                    text: header.from[0],
+                    address: extractEmailAddress(header.from[0]),
+                    name: extractDisplayName(header.from[0]),
+                  }
+                : null;
 
-              if (parsed.attachments && parsed.attachments.length > 0) {
-                email.attachments = parsed.attachments.map((att) => ({
-                  filename: att.filename,
-                  contentType: att.contentType,
-                  size: att.size,
-                }));
-              }
+            email.to = header.to && header.to[0] ? header.to[0] : null;
+            email.subject =
+              header.subject && header.subject[0] ? header.subject[0] : null;
+            email.date =
+              header.date && header.date[0] ? new Date(header.date[0]) : null;
+            email.messageId =
+              header["message-id"] && header["message-id"][0]
+                ? header["message-id"][0]
+                : null;
+          } else if (info.which === "TEXT") {
+            // Store raw text part for later parsing
+            email.textBuffer = buffer;
+          } else if (info.which === "") {
+            // Parse the full message, but do it asynchronously
+            simpleParser(buffer)
+              .then((parsed) => {
+                // Update with more accurate parsed data
+                if (!email.messageId && parsed.messageId) {
+                  email.messageId = parsed.messageId;
+                }
 
-              // Add to emails array
-              emails.push(email);
-            });
+                if (parsed.from && parsed.from.text) {
+                  email.from = parsed.from;
+                }
+
+                if (parsed.to) {
+                  email.to = parsed.to;
+                }
+
+                if (parsed.subject) {
+                  email.subject = parsed.subject;
+                }
+
+                if (parsed.date) {
+                  email.date = parsed.date;
+                }
+
+                email.body = parsed.text;
+                email.html = parsed.html;
+
+                // Create a snippet from the text body
+                if (parsed.text) {
+                  email.snippet = parsed.text
+                    .substring(0, 200)
+                    .replace(/\n/g, " ");
+                }
+
+                if (parsed.attachments && parsed.attachments.length > 0) {
+                  email.attachments = parsed.attachments.map((att) => ({
+                    filename: att.filename,
+                    contentType: att.contentType,
+                    size: att.size,
+                  }));
+                }
+              })
+              .catch((err) => {
+                console.error(`Error parsing full message #${seqno}:`, err);
+              });
           }
         });
+      });
+
+      // Get email UID and flags
+      msg.once("attributes", (attrs) => {
+        email.uid = attrs.uid;
+        email.internalDate = attrs.date;
+        email.flags = attrs.flags;
       });
     });
 
@@ -284,25 +375,71 @@ function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
 
     fetch.once("end", () => {
       console.log("Fetch completed");
-      imap.end();
 
-      // Log message to help with debugging
-      console.log(`Fetched ${emails.length} emails, sorting by date...`);
+      // Wait a bit for parsing to complete
+      setTimeout(() => {
+        // Convert the map values to an array
+        const fetchedEmails = Array.from(emailMap.values());
 
-      // Sort emails by date (newest first)
-      emails.sort((a, b) => {
-        const dateA = a.date ? a.date.getTime() : 0;
-        const dateB = b.date ? b.date.getTime() : 0;
-        return dateB - dateA;
-      });
+        // Check if any emails were parsed correctly
+        console.log(`Fetched ${fetchedEmails.length} emails, validating...`);
 
-      // Return only the requested number of emails after sorting
-      const limitedEmails = emails.slice(0, limit);
-      console.log(
-        `Returning the ${limitedEmails.length} most recent emails by date`
-      );
+        // Perform basic validation and fallback parsing if needed
+        const validatedEmails = fetchedEmails.map((email) => {
+          // If we don't have a parsed body but have a textBuffer, try to extract text
+          if (!email.body && email.textBuffer) {
+            try {
+              // Simple extraction of plain text content
+              email.body = email.textBuffer
+                .replace(/=\r\n/g, "") // Remove soft line breaks
+                .replace(/=([0-9A-F]{2})/g, (match, hex) =>
+                  String.fromCharCode(parseInt(hex, 16))
+                ) // Decode hex chars
+                .replace(/[\r\n]+/g, "\n"); // Normalize line breaks
 
-      resolve(limitedEmails);
+              // Create a snippet
+              email.snippet = email.body.substring(0, 200).replace(/\n/g, " ");
+            } catch (err) {
+              console.error(
+                `Error extracting text for email #${email.seqno}:`,
+                err
+              );
+            }
+          }
+
+          // Return the potentially enhanced email
+          return email;
+        });
+
+        // Add all validated emails to the result array
+        emails.push(...validatedEmails);
+
+        // Log message to help with debugging
+        console.log(`Validated ${emails.length} emails, sorting by date...`);
+
+        // Sort emails by date (newest first) with fallbacks for missing dates
+        emails.sort((a, b) => {
+          // Try different date fields with fallbacks
+          const getDateValue = (email) => {
+            if (email.date) return email.date.getTime();
+            if (email.internalDate) return email.internalDate.getTime();
+            if (email.headers && email.headers.date && email.headers.date[0])
+              return new Date(email.headers.date[0]).getTime();
+            return 0; // Fallback if no date available
+          };
+
+          return getDateValue(b) - getDateValue(a);
+        });
+
+        // Return only the requested number of emails after sorting
+        const limitedEmails = emails.slice(0, limit);
+        console.log(
+          `Returning the ${limitedEmails.length} most recent emails by date`
+        );
+
+        imap.end();
+        resolve(limitedEmails);
+      }, 1000); // Give it 1 second for parsing to complete
     });
   } catch (err) {
     console.error("Fetch setup error:", err);
@@ -312,18 +449,53 @@ function fetchEmailsFromBox(imap, box, limit, emails, resolve, reject) {
 }
 
 /**
+ * Helper function to extract email address from a string like "Name <email@example.com>"
+ */
+function extractEmailAddress(emailString) {
+  if (!emailString) return null;
+
+  const match = emailString.match(/<([^>]+)>/);
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  // If no angle brackets, check if it's just an email address
+  if (emailString.includes("@")) {
+    return emailString.trim();
+  }
+
+  return null;
+}
+
+/**
+ * Helper function to extract display name from a string like "Name <email@example.com>"
+ */
+function extractDisplayName(emailString) {
+  if (!emailString) return null;
+
+  const match = emailString.match(/^([^<]+)</);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+
+  return null;
+}
+
+/**
  * Fetches emails from a specific folder
- * @param {string} email - User's email address
- * @param {string} accessToken - OAuth2 access token
- * @param {string} folder - Folder name (e.g., "Sent", "Drafts")
- * @param {number} limit - Number of emails to fetch
+ * @param {string} email - User's email address.
+ * @param {string} accessToken - OAuth2 access token (not used in password auth mode).
+ * @param {string} folder - Folder name to fetch from
+ * @param {number} limit - Number of emails to fetch (default 10)
+ * @param {number} page - Page number for pagination (default 1)
  * @returns {Promise<Array>} - Promise that resolves to array of emails
  */
 export const fetchEmailsFromFolder = (
   email,
   accessToken,
   folder,
-  limit = 10
+  limit = 10,
+  page = 1
 ) => {
-  return fetchEmails(email, accessToken, limit, folder);
+  return fetchEmails(email, accessToken, limit, folder, page);
 };

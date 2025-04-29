@@ -211,6 +211,64 @@ The backend is designed to integrate with locally hosted LLM models for:
 - Style analysis
 - Conversation context understanding
 
+## AI-Powered Email Search
+
+This repository contains a new voice search feature that allows searching emails using natural language queries.
+
+## Natural Language Email Search
+
+The system now supports searching emails using natural language voice commands. Users can search for emails using queries like:
+
+- "Show me emails from John about the project proposal from last week"
+- "Find emails containing quarterly report received in March"
+- "Show emails from support team with attachments"
+
+### How It Works
+
+The backend processes natural language queries by:
+
+1. Parsing the text to extract search parameters (keywords, dates, senders, folders)
+2. Converting these parameters into a structured search query
+3. Executing the search against email sources (IMAP or local database)
+4. Returning matching results
+
+### Documentation
+
+- [Voice Search API Guide](VOICE_SEARCH_API_GUIDE.md) - Detailed API documentation
+- [Postman Testing Examples](POSTMAN_VOICE_SEARCH_EXAMPLES.md) - Examples for testing with Postman
+
+## Testing the API
+
+The voice search API is available at:
+
+```
+POST /email/voice-search
+```
+
+Example request body:
+
+```json
+{
+  "voiceText": "show me emails from John about project update received last week"
+}
+```
+
+To test the parsing functionality without performing an actual search, use:
+
+```
+node src/test-voice-search.js "your search query here"
+```
+
+## Features
+
+The voice search supports:
+
+- **Keyword extraction**: Find emails containing specific terms
+- **Date range parsing**: Search by relative dates ("last week", "yesterday", "this month") or specific dates
+- **Sender filtering**: Find emails from specific people
+- **Folder targeting**: Search in specific email folders (inbox, sent, spam, etc.)
+- **Result limiting**: Specify the number of results to return
+
 ## License
 
 ISC
