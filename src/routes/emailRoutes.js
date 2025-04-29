@@ -548,4 +548,98 @@ router.get("/saved-folders", async (req, res) => {
   }
 });
 
+// Remove an email from a custom folder
+router.post("/remove-from-folder", async (req, res) => {
+  try {
+    const { id, folder } = req.body; // Get both email ID and folder name
+    if (!id || !folder) {
+      return res
+        .status(400)
+        .json({ error: "Email ID and folder name are required" });
+    }
+    const result = await emailService.removeEmailFromFolder(id, folder);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a custom folder
+router.delete("/custom-folder/:folderName/:userId", async (req, res) => {
+  try {
+    const { folderName, userId } = req.params;
+    const parsedUserId = parseInt(userId);
+
+    if (!folderName || !parsedUserId) {
+      return res
+        .status(400)
+        .json({ error: "Folder name and user ID are required" });
+    }
+
+    console.log(
+      `Attempting to delete folder "${folderName}" for user ${parsedUserId}`
+    );
+
+    // Validate that the folder is not a system folder
+    const systemFolders = ["INBOX", "SENT", "DRAFTS", "TRASH", "SPAM"];
+    if (systemFolders.includes(folderName.toUpperCase())) {
+      return res.status(400).json({ error: "Cannot delete system folders" });
+    }
+
+    const result = await emailService.deleteCustomFolder(
+      parsedUserId,
+      folderName
+    );
+
+    if (result && result.message === "Folder deleted successfully") {
+      res.json({
+        success: true,
+        message: "Folder deleted successfully",
+        folder: folderName,
+        emailsMoved: result.emailsMoved,
+      });
+    } else {
+      res.status(500).json({ error: "Failed to delete folder" });
+    }
+  } catch (error) {
+    console.error("Error deleting custom folder:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Also keep the original endpoint for backward compatibility
+router.delete("/custom-folder", async (req, res) => {
+  try {
+    const { folderName, userId } = req.body;
+
+    if (!folderName || !userId) {
+      return res
+        .status(400)
+        .json({ error: "Folder name and user ID are required" });
+    }
+
+    // Validate that the folder is not a system folder
+    const systemFolders = ["INBOX", "SENT", "DRAFTS", "TRASH", "SPAM"];
+    if (systemFolders.includes(folderName.toUpperCase())) {
+      return res.status(400).json({ error: "Cannot delete system folders" });
+    }
+
+    const result = await emailService.deleteCustomFolder(userId, folderName);
+
+    if (result && result.message === "Folder deleted successfully") {
+      res.json({
+        success: true,
+        message: "Folder deleted successfully",
+        folder: folderName,
+        emailsMoved: result.emailsMoved,
+      });
+    } else {
+      res.status(500).json({ error: "Failed to delete folder" });
+    }
+  } catch (error) {
+    console.error("Error deleting custom folder:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
