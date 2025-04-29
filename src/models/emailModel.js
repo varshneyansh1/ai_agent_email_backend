@@ -267,3 +267,167 @@ export const getCustomFolders = (userId) => {
     );
   });
 };
+
+// Remove an email from a custom folder (move it back to INBOX)
+export const removeEmailFromFolder = (emailId, folder = null) => {
+  return new Promise((resolve, reject) => {
+    // First, verify the email exists and get its current folder
+    db.get(
+      `SELECT folder, user_id FROM emails WHERE id = ?`,
+      [emailId],
+      (err, row) => {
+        if (err) {
+          console.error("Error checking email existence:", err);
+          reject(err);
+          return;
+        }
+
+        if (!row) {
+          reject(new Error("Email not found"));
+          return;
+        }
+
+        // If folder is specified, make sure the email is in that folder
+        if (folder && row.folder !== folder) {
+          reject(new Error(`Email is not in folder '${folder}'`));
+          return;
+        }
+
+        // Update the folder to INBOX
+        db.run(
+          `UPDATE emails SET folder = 'INBOX' WHERE id = ?`,
+          [emailId],
+          function (err) {
+            if (err) {
+              console.error("Error moving email to INBOX:", err);
+              reject(err);
+              return;
+            }
+
+            if (this.changes === 0) {
+              reject(new Error("Email not found or no changes made"));
+            } else {
+              resolve({
+                id: emailId,
+                folder: "INBOX",
+                previousFolder: row.folder,
+                message: "Email removed from folder successfully",
+              });
+            }
+          }
+        );
+      }
+    );
+  });
+};
+
+// Delete a custom folder
+export const deleteCustomFolder = (userId, folderName) => {
+  return new Promise((resolve, reject) => {
+    // Start a transaction to ensure atomicity
+    db.run("BEGIN TRANSACTION", (err) => {
+      if (err) {
+        console.error("MODEL: Error starting transaction:", err);
+        reject(err);
+        return;
+      }
+
+      // Check if the folder exists
+      db.get(
+        `SELECT id FROM custom_folders WHERE user_id = ? AND folder_name = ?`,
+        [userId, folderName],
+        (err, row) => {
+          if (err) {
+            db.run("ROLLBACK");
+            console.error("MODEL: Error checking folder existence:", err);
+            reject(err);
+            return;
+          }
+
+          console.log(`MODEL: Folder check result:`, row);
+
+          if (!row) {
+            db.run("ROLLBACK");
+            console.error(
+              `MODEL: Folder not found: "${folderName}" for user ${userId}`
+            );
+            reject(new Error("Folder not found"));
+            return;
+          }
+
+          // Move all emails in this folder back to INBOX
+          console.log(
+            `MODEL: Moving emails from folder "${folderName}" to INBOX`
+          );
+          db.run(
+            `UPDATE emails SET folder = 'INBOX' WHERE user_id = ? AND folder = ?`,
+            [userId, folderName],
+            function (updateErr) {
+              if (updateErr) {
+                db.run("ROLLBACK");
+                console.error("MODEL: Error updating emails:", updateErr);
+                reject(updateErr);
+                return;
+              }
+
+              const emailsMoved = this.changes;
+              console.log(`MODEL: Moved ${emailsMoved} emails to INBOX`);
+
+              // Delete the folder from custom_folders table
+              console.log(
+                `MODEL: Deleting folder "${folderName}" from database`
+              );
+              db.run(
+                `DELETE FROM custom_folders WHERE user_id = ? AND folder_name = ?`,
+                [userId, folderName],
+                function (deleteErr) {
+                  if (deleteErr) {
+                    db.run("ROLLBACK");
+                    console.error("MODEL: Error deleting folder:", deleteErr);
+                    reject(deleteErr);
+                    return;
+                  }
+
+                  const deletedCount = this.changes;
+                  console.log(`MODEL: Deleted ${deletedCount} folder records`);
+
+                  if (deletedCount === 0) {
+                    db.run("ROLLBACK");
+                    console.error(
+                      `MODEL: Failed to delete folder: "${folderName}"`
+                    );
+                    reject(new Error("Failed to delete folder"));
+                    return;
+                  }
+
+                  // Commit the transaction
+                  console.log("MODEL: Committing transaction");
+                  db.run("COMMIT", (commitErr) => {
+                    if (commitErr) {
+                      db.run("ROLLBACK");
+                      console.error(
+                        "MODEL: Error committing transaction:",
+                        commitErr
+                      );
+                      reject(commitErr);
+                      return;
+                    }
+
+                    console.log(
+                      `MODEL: Successfully deleted folder "${folderName}"`
+                    );
+                    resolve({
+                      folder: folderName,
+                      emailsMoved: emailsMoved,
+                      message: "Folder deleted successfully",
+                    });
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+};

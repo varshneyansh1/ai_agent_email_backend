@@ -8,6 +8,8 @@ import {
   updateEmailFolder,
   createCustomFolder,
   getCustomFolders,
+  removeEmailFromFolder as removeEmailFromFolderModel,
+  deleteCustomFolder as deleteCustomFolderModel,
 } from "../models/emailModel.js";
 import Imap from "imap";
 import dotenv from "dotenv";
@@ -2185,6 +2187,36 @@ class EmailService {
     } catch (error) {
       console.error("Error fetching emails by folder:", error);
       throw new Error(`Failed to fetch emails from folder: ${error.message}`);
+    }
+  }
+
+  /**
+   * Remove an email from a custom folder (move it back to INBOX)
+   * @param {number} emailId - Email ID
+   * @param {string} folder - Folder name
+   * @returns {Promise<Object>} - Result of the operation
+   */
+  async removeEmailFromFolder(emailId, folder) {
+    try {
+      return await removeEmailFromFolderModel(emailId, folder);
+    } catch (error) {
+      console.error("Error removing email from folder:", error);
+      throw new Error(`Failed to remove email from folder: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a custom folder and move all its emails back to INBOX
+   * @param {number} userId - User ID
+   * @param {string} folderName - Name of the folder to delete
+   * @returns {Promise<Object>} - Result of the operation
+   */
+  async deleteCustomFolder(userId, folderName) {
+    try {
+      return await deleteCustomFolderModel(userId, folderName);
+    } catch (error) {
+      console.error("Error deleting custom folder:", error);
+      throw new Error(`Failed to delete custom folder: ${error.message}`);
     }
   }
 }
