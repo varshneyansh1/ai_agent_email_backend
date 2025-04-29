@@ -213,6 +213,23 @@ router.get("/folders", async (req, res) => {
 /**
  * Send a new email
  * For testing, this route is temporarily accessible without full OAuth authentication
+ *
+ * Attachments should be provided as an array of objects with the following structure:
+ * [
+ *   {
+ *     filename: 'attachment1.pdf',
+ *     content: '<base64-encoded-content>', // Or path, buffer, or stream
+ *     encoding: 'base64',                  // Optional if using path
+ *     contentType: 'application/pdf'       // Optional MIME type
+ *   }
+ * ]
+ *
+ * The attachments array supports various formats:
+ * - {filename, content}: Basic attachment with filename and content
+ * - {path}: Direct file path to attachment
+ * - {filename, content, contentType}: With specific MIME type
+ * - {filename, content, encoding}: With specific encoding (e.g. 'base64')
+ * - {raw}: Raw attachment content as RFC822 message
  */
 router.post("/send", async (req, res) => {
   try {
@@ -225,7 +242,11 @@ router.post("/send", async (req, res) => {
         .json({ error: "Recipient, subject, and body are required" });
     }
 
-    console.log(`Sending email from ${userEmail} to ${recipient}`);
+    console.log(
+      `Sending email from ${userEmail} to ${recipient}${
+        attachments ? ` with ${attachments.length} attachment(s)` : ""
+      }`
+    );
     const result = await emailService.sendEmail(
       userEmail,
       "dummy-token", // Not actually used in password auth mode
@@ -378,43 +399,120 @@ router.post("/voice-search", async (req, res) => {
 router.get("/db-folder/:folderName", async (req, res) => {
   try {
     const { folderName } = req.params;
-    const limit = req.query.limit ? parseInt(req.query.limit) : 20;
-    const offset = req.query.offset ? parseInt(req.query.offset) : 0;
-    const userId = req.query.userId ? parseInt(req.query.userId) : 1; // Default to user 1 for testing
+    const userId = req.query.userId ? parseInt(req.query.userId) : 1; // Default to user ID 1 for testing
 
     console.log(
-      `Searching database for emails in folder ${folderName} for user ${userId}`
+      `Fetching emails from database folder ${folderName} for user ${userId}`
     );
-
-    // Search the database for emails in the specified folder
-    const emails = await emailService.searchEmails(
-      "dummy@example.com", // Not actually used for DB search
-      "dummy-token", // Not actually used for DB search
-      {
-        folder: folderName,
-        limit,
-        offset,
-        searchLocal: true,
-        userId,
-      }
-    );
-
-    console.log(
-      `Found ${emails.length} emails in folder ${folderName} in the database`
-    );
-
+    const emails = await emailService.getEmailsByFolder(userId, folderName);
     res.json({
-      emails,
       folder: folderName,
+      emails: emails,
       count: emails.length,
-      limit,
-      offset,
     });
   } catch (error) {
     console.error(
-      `Error searching database for folder ${req.params.folderName}:`,
+      `Error fetching database folder ${req.params.folderName}:`,
       error
     );
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * Get all custom folders for a user
+ * Returns a list of folders created by the user
+ */
+router.get("/custom-folders", async (req, res) => {
+  try {
+    const userId = req.query.userId ? parseInt(req.query.userId) : 1; // Default to user ID 1 for testing
+
+    console.log(`Fetching custom folders for user ${userId}`);
+    const folders = await emailService.getUserFolders(userId);
+    res.json({
+      message: `Found ${folders.length} folders for user ${userId}`,
+      folders,
+    });
+  } catch (error) {
+    console.error("Error fetching custom folders:", error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * Create a new custom folder
+ * This endpoint creates a new folder for organizing emails
+ */
+router.post("/custom-folders", async (req, res) => {
+  try {
+    const { folderName } = req.body;
+    const userId = req.body.userId || 1; // Default to user ID 1 for testing
+
+    if (!folderName) {
+      return res.status(400).json({ error: "Folder name is required" });
+    }
+
+    console.log(`Creating custom folder "${folderName}" for user ${userId}`);
+    const result = await emailService.createCustomFolder(userId, folderName);
+    res.status(201).json(result);
+  } catch (error) {
+    console.error("Error creating custom folder:", error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * Move an email to a folder
+ * This endpoint moves an existing email to a different folder
+ */
+router.put("/move-to-folder/:emailId", async (req, res) => {
+  try {
+    const { emailId } = req.params;
+    const { folderName } = req.body;
+
+    if (!folderName) {
+      return res.status(400).json({ error: "Folder name is required" });
+    }
+
+    console.log(`Moving email ${emailId} to folder "${folderName}"`);
+    const result = await emailService.moveEmailToFolder(emailId, folderName);
+    res.json(result);
+  } catch (error) {
+    console.error("Error moving email to folder:", error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
+  }
+});
+
+/**
+ * Move an email to a folder using sequence number
+ * This endpoint moves an existing email to a different folder using sequence number
+ */
+router.put("/move-to-folder-by-seq/:seq", async (req, res) => {
+  try {
+    const seq = parseInt(req.params.seq);
+    const { folderName } = req.body;
+
+    if (!folderName) {
+      return res.status(400).json({ error: "Folder name is required" });
+    }
+
+    console.log(`Moving email with sequence ${seq} to folder "${folderName}"`);
+    const result = await emailService.moveEmailToFolder(seq, folderName);
+    res.json(result);
+  } catch (error) {
+    console.error("Error moving email to folder:", error);
     res.status(500).json({
       error: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,

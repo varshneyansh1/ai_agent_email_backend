@@ -5,6 +5,9 @@ import {
   getEmailsByUser,
   searchEmails,
   getDistinctFoldersByUser,
+  updateEmailFolder,
+  createCustomFolder,
+  getCustomFolders,
 } from "../models/emailModel.js";
 import Imap from "imap";
 import dotenv from "dotenv";
@@ -437,71 +440,163 @@ class EmailService {
       // Filter by keyword with more lenient matching
       if (keyword) {
         console.log(`Filtering by keyword: ${keyword}`);
-        const keywordLower = keyword.toLowerCase();
 
-        const beforeCount = filteredEmails.length;
-        filteredEmails = filteredEmails.filter((email) => {
-          if (!email) return false;
+        // Check if this is a complex query with subject: or body: specifications
+        const isComplexQuery =
+          searchOptions.complexQuery ||
+          keyword.includes("subject:") ||
+          keyword.includes("body:");
 
-          // Check in subject
+        if (isComplexQuery) {
+          console.log("Processing complex keyword query");
+
+          // Extract subject and body parts if they exist
           const subjectMatch =
-            email.subject &&
-            typeof email.subject === "string" &&
-            email.subject.toLowerCase().includes(keywordLower);
-
-          // Check in body text
+            keyword.match(/subject:"([^"]+)"/i) ||
+            keyword.match(/subject:(\S+)/i);
           const bodyMatch =
-            email.body &&
-            typeof email.body === "string" &&
-            email.body.toLowerCase().includes(keywordLower);
+            keyword.match(/body:"([^"]+)"/i) || keyword.match(/body:(\S+)/i);
 
-          // Check in snippet
-          const snippetMatch =
-            email.snippet &&
-            typeof email.snippet === "string" &&
-            email.snippet.toLowerCase().includes(keywordLower);
+          // Get the actual search terms
+          const subjectTerm = subjectMatch
+            ? subjectMatch[1].toLowerCase()
+            : null;
+          const bodyTerm = bodyMatch ? bodyMatch[1].toLowerCase() : null;
 
-          // Check in sender
-          const fromTextMatch =
-            email.from &&
-            email.from.text &&
-            typeof email.from.text === "string" &&
-            email.from.text.toLowerCase().includes(keywordLower);
-
-          // Check in sender address
-          const fromAddressMatch =
-            email.from &&
-            email.from.address &&
-            typeof email.from.address === "string" &&
-            email.from.address.toLowerCase().includes(keywordLower);
-
-          // Check in separate sender field
-          const senderMatch =
-            email.sender &&
-            typeof email.sender === "string" &&
-            email.sender.toLowerCase().includes(keywordLower);
-
-          // Check in separate subject field (some APIs use different fields)
-          const headerSubjectMatch =
-            email.headers &&
-            email.headers.subject &&
-            typeof email.headers.subject === "string" &&
-            email.headers.subject.toLowerCase().includes(keywordLower);
-
-          // Return true if any of the checks matched
-          return (
-            subjectMatch ||
-            bodyMatch ||
-            snippetMatch ||
-            fromTextMatch ||
-            fromAddressMatch ||
-            senderMatch ||
-            headerSubjectMatch
+          console.log(
+            `Extracted specific terms - Subject: ${subjectTerm}, Body: ${bodyTerm}`
           );
-        });
-        console.log(
-          `Keyword filtering: ${beforeCount} -> ${filteredEmails.length} emails`
-        );
+
+          // If neither subject nor body specified but marked as complex, treat as general
+          if (!subjectTerm && !bodyTerm) {
+            const generalKeyword = keyword.toLowerCase();
+
+            const beforeCount = filteredEmails.length;
+            filteredEmails = filteredEmails.filter((email) => {
+              if (!email) return false;
+
+              // Check in subject
+              const subjectMatch =
+                email.subject &&
+                typeof email.subject === "string" &&
+                email.subject.toLowerCase().includes(generalKeyword);
+
+              // Check in body text
+              const bodyMatch =
+                email.body &&
+                typeof email.body === "string" &&
+                email.body.toLowerCase().includes(generalKeyword);
+
+              return subjectMatch || bodyMatch;
+            });
+
+            console.log(
+              `General keyword filtering: ${beforeCount} -> ${filteredEmails.length} emails`
+            );
+          } else {
+            // Apply specific filters for subject and/or body
+            const beforeCount = filteredEmails.length;
+
+            filteredEmails = filteredEmails.filter((email) => {
+              if (!email) return false;
+
+              let matches = true;
+
+              // Apply subject filter if specified
+              if (subjectTerm) {
+                const subjectMatches =
+                  email.subject &&
+                  typeof email.subject === "string" &&
+                  email.subject.toLowerCase().includes(subjectTerm);
+
+                if (!subjectMatches) matches = false;
+              }
+
+              // Apply body filter if specified
+              if (matches && bodyTerm) {
+                const bodyMatches =
+                  email.body &&
+                  typeof email.body === "string" &&
+                  email.body.toLowerCase().includes(bodyTerm);
+
+                if (!bodyMatches) matches = false;
+              }
+
+              return matches;
+            });
+
+            console.log(
+              `Complex keyword filtering: ${beforeCount} -> ${filteredEmails.length} emails`
+            );
+          }
+        } else {
+          // Standard keyword processing
+          const keywordLower = keyword.toLowerCase();
+
+          const beforeCount = filteredEmails.length;
+          filteredEmails = filteredEmails.filter((email) => {
+            if (!email) return false;
+
+            // Check in subject
+            const subjectMatch =
+              email.subject &&
+              typeof email.subject === "string" &&
+              email.subject.toLowerCase().includes(keywordLower);
+
+            // Check in body text
+            const bodyMatch =
+              email.body &&
+              typeof email.body === "string" &&
+              email.body.toLowerCase().includes(keywordLower);
+
+            // Check in snippet
+            const snippetMatch =
+              email.snippet &&
+              typeof email.snippet === "string" &&
+              email.snippet.toLowerCase().includes(keywordLower);
+
+            // Check in sender
+            const fromTextMatch =
+              email.from &&
+              email.from.text &&
+              typeof email.from.text === "string" &&
+              email.from.text.toLowerCase().includes(keywordLower);
+
+            // Check in sender address
+            const fromAddressMatch =
+              email.from &&
+              email.from.address &&
+              typeof email.from.address === "string" &&
+              email.from.address.toLowerCase().includes(keywordLower);
+
+            // Check in separate sender field
+            const senderMatch =
+              email.sender &&
+              typeof email.sender === "string" &&
+              email.sender.toLowerCase().includes(keywordLower);
+
+            // Check in separate subject field (some APIs use different fields)
+            const headerSubjectMatch =
+              email.headers &&
+              email.headers.subject &&
+              typeof email.headers.subject === "string" &&
+              email.headers.subject.toLowerCase().includes(keywordLower);
+
+            // Return true if any of the checks matched
+            return (
+              subjectMatch ||
+              bodyMatch ||
+              snippetMatch ||
+              fromTextMatch ||
+              fromAddressMatch ||
+              senderMatch ||
+              headerSubjectMatch
+            );
+          });
+          console.log(
+            `Keyword filtering: ${beforeCount} -> ${filteredEmails.length} emails`
+          );
+        }
       }
 
       // Filter by date range with better date handling
@@ -1792,32 +1887,6 @@ class EmailService {
         }
       }
 
-      // Extract sender information with improved patterns
-      const senderPatterns = [
-        // Email address patterns
-        /\b(?:from|by|sent by)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i,
-        // Name patterns with flexible formats
-        /\b(?:from|by|sent by)\s+(['"]?)([a-zA-Z0-9\s.&_-]+)\1/i,
-        // Domain patterns
-        /\b(?:from|by|sent by)\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i,
-      ];
-
-      for (const pattern of senderPatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          // Use the capture group that contains the actual sender
-          const senderMatch = match[2] || match[1];
-          if (senderMatch && senderMatch.length > 1) {
-            // Ensure we have a meaningful sender
-            searchParams.sender = senderMatch.trim();
-            console.log(
-              `Extracted sender: "${searchParams.sender}" using pattern: ${pattern}`
-            );
-            break;
-          }
-        }
-      }
-
       // Extract keywords using more patterns
       const keywordPatterns = [
         // Quoted content
@@ -1830,29 +1899,158 @@ class EmailService {
         /emails? (?:about|on|regarding|concerning|discussing)\s+(.+?)(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
         // In subject line
         /with (?:subject|title)\s+(.+?)(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
+        // Content contains
+        /(?:containing|has|includes?|with)\s+(?:the\s+)?(?:words?|text|content|phrase|terms?)\s+["']?([^"']+?)["']?(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
+        // Body contains
+        /(?:body|content|text)\s+(?:containing|has|includes?|with)\s+["']?([^"']+?)["']?(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
+        // Subject contains
+        /(?:subject|title|headline)\s+(?:containing|has|includes?|with)\s+["']?([^"']+?)["']?(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
+        // Contains in body
+        /(?:contains?|has|includes?)\s+["']?([^"']+?)["']?\s+(?:in|within)\s+(?:the\s+)?(?:body|content|text)/i,
+        // Contains in subject
+        /(?:contains?|has|includes?)\s+["']?([^"']+?)["']?\s+(?:in|within)\s+(?:the\s+)?(?:subject|title|headline)/i,
+        // Direct mention of keyword
+        /(?:key\s*words?|terms?|phrases?)\s+["']?([^"']+?)["']?(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
       ];
 
-      // Try each pattern until we find a keyword
+      // Extract subject-specific keywords
+      const subjectKeywordPatterns = [
+        /(?:subject|title|headline)\s+(?:containing|has|includes?|with|like|is|equals?)\s+["']?([^"']+?)["']?(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
+        /(?:in|with(?:in)?)\s+(?:the\s+)?(?:subject|title|headline)\s+["']?([^"']+?)["']?/i,
+        /(?:containing|has|includes?)\s+["']?([^"']+?)["']?\s+(?:in|within)\s+(?:the\s+)?(?:subject|title|headline)/i,
+      ];
+
+      // Extract body-specific keywords
+      const bodyKeywordPatterns = [
+        /(?:body|content|text|message)\s+(?:containing|has|includes?|with|like)\s+["']?([^"']+?)["']?(?:\s+in|\s+from|\s+before|\s+after|\s+since|$)/i,
+        /(?:in|with(?:in)?)\s+(?:the\s+)?(?:body|content|text|message)\s+["']?([^"']+?)["']?/i,
+        /(?:containing|has|includes?)\s+["']?([^"']+?)["']?\s+(?:in|within)\s+(?:the\s+)?(?:body|content|text|message)/i,
+      ];
+
+      // Extract sender-specific patterns with improved matching
+      const senderPatterns = [
+        // Email address patterns
+        /\b(?:from|by|sent by)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i,
+        // Name patterns with flexible formats
+        /\b(?:from|by|sent by)\s+(['"]?)([a-zA-Z0-9\s.&_-]+)\1/i,
+        // Domain patterns
+        /\b(?:from|by|sent by)\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i,
+        // Sent by person
+        /\b(?:from|by|sent by|sender is)\s+(.+?)(?:\s+in|\s+and|\s+with|\s+containing|\s+about|\s+before|\s+after|\s+since|$)/i,
+        // Authored by
+        /\b(?:authored|written|composed|created)\s+by\s+(.+?)(?:\s+in|\s+and|\s+with|\s+containing|\s+about|\s+before|\s+after|\s+since|$)/i,
+        // From domain
+        /\b(?:from|by)\s+(?:someone|anyone|people|person)?\s+(?:at|@|from)\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i,
+        // People from domain
+        /\b(?:people|someone|anyone)\s+(?:from|at)\s+([a-zA-Z0-9\s.&_-]+)(?:\s+|\b|$)/i,
+      ];
+
+      // Create objects to store specific search parameters
+      let subjectKeyword = null;
+      let bodyKeyword = null;
+      let generalKeyword = null;
+
+      // First check for subject-specific keywords
+      for (const pattern of subjectKeywordPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1] && match[1].trim().length > 0) {
+          subjectKeyword = match[1].trim();
+          console.log(
+            `Extracted subject keyword: "${subjectKeyword}" using pattern: ${pattern}`
+          );
+          break;
+        }
+      }
+
+      // Then check for body-specific keywords
+      for (const pattern of bodyKeywordPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1] && match[1].trim().length > 0) {
+          bodyKeyword = match[1].trim();
+          console.log(
+            `Extracted body keyword: "${bodyKeyword}" using pattern: ${pattern}`
+          );
+          break;
+        }
+      }
+
+      // Check for sender first with improved patterns
+      for (const pattern of senderPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          // Use the capture group that contains the actual sender
+          const senderMatch = match[2] || match[1];
+          if (senderMatch && senderMatch.length > 1) {
+            // Ensure we have a meaningful sender (exclude common stop words or very short terms)
+            const stopWords = [
+              "and",
+              "the",
+              "with",
+              "for",
+              "in",
+              "on",
+              "at",
+              "by",
+              "to",
+              "a",
+              "an",
+            ];
+            if (
+              senderMatch.length > 2 &&
+              !stopWords.includes(senderMatch.toLowerCase().trim())
+            ) {
+              searchParams.sender = senderMatch.trim();
+              console.log(
+                `Extracted sender: "${searchParams.sender}" using pattern: ${pattern}`
+              );
+              break;
+            }
+          }
+        }
+      }
+
+      // Try generic keyword patterns if no specific ones found
       for (const pattern of keywordPatterns) {
         const match = text.match(pattern);
         if (match && match[1] && match[1].trim().length > 0) {
-          searchParams.keyword = match[1].trim();
+          generalKeyword = match[1].trim();
           console.log(
-            `Extracted keyword: "${searchParams.keyword}" using pattern: ${pattern}`
+            `Extracted general keyword: "${generalKeyword}" using pattern: ${pattern}`
           );
           break;
         }
       }
 
       // If no keyword yet, try a different approach - look for quoted text
-      if (!searchParams.keyword) {
+      if (!generalKeyword && !subjectKeyword && !bodyKeyword) {
         const quotedText = text.match(/["']([^"']+)["']/);
         if (quotedText && quotedText[1] && quotedText[1].length > 1) {
-          searchParams.keyword = quotedText[1];
-          console.log(
-            `Extracted keyword from quotes: "${searchParams.keyword}"`
-          );
+          generalKeyword = quotedText[1];
+          console.log(`Extracted keyword from quotes: "${generalKeyword}"`);
         }
+      }
+
+      // Create a composite search keyword if we have specific parts
+      if (subjectKeyword || bodyKeyword) {
+        let queryParts = [];
+
+        if (subjectKeyword) {
+          queryParts.push(`subject:"${subjectKeyword}"`);
+        }
+
+        if (bodyKeyword) {
+          queryParts.push(`body:"${bodyKeyword}"`);
+        }
+
+        if (queryParts.length > 0) {
+          searchParams.keyword = queryParts.join(" AND ");
+          searchParams.complexQuery = true;
+          console.log(`Created composite query: ${searchParams.keyword}`);
+        } else if (generalKeyword) {
+          searchParams.keyword = generalKeyword;
+        }
+      } else if (generalKeyword) {
+        searchParams.keyword = generalKeyword;
       }
 
       // As a last resort, extract the main topic if there are no other search parameters
@@ -1915,16 +2113,78 @@ class EmailService {
 
   /**
    * Get all distinct folders for a user from the database
+   * This includes both custom folders and folders that have emails in them
+   * @param {number} userId - User ID
+   * @returns {Promise<Array>} - Array of folder names
+   */
+  async getUserFolders(userId) {
+    try {
+      return await getCustomFolders(userId);
+    } catch (error) {
+      console.error("Error fetching user folders:", error);
+      throw new Error(`Failed to fetch user folders: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get folders that contain emails (for backward compatibility)
    * @param {number} userId - User ID
    * @returns {Promise<Array>} - Array of folder names
    */
   async getSavedFolders(userId) {
     try {
-      const folders = await getDistinctFoldersByUser(userId);
-      return folders;
+      return await getDistinctFoldersByUser(userId);
     } catch (error) {
       console.error("Error getting saved folders:", error);
       throw new Error(`Failed to get saved folders: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a custom folder for a user
+   * @param {number} userId - User ID
+   * @param {string} folderName - Name of the folder to create
+   * @returns {Promise<Object>} - Created folder object
+   */
+  async createCustomFolder(userId, folderName) {
+    try {
+      return await createCustomFolder(userId, folderName);
+    } catch (error) {
+      console.error("Error creating custom folder:", error);
+      throw new Error(`Failed to create custom folder: ${error.message}`);
+    }
+  }
+
+  /**
+   * Move an email to a different folder
+   * @param {number} emailId - Email ID
+   * @param {string} folderName - Name of the folder to move the email to
+   * @returns {Promise<Object>} - Updated email object
+   */
+  async moveEmailToFolder(emailId, folderName) {
+    try {
+      return await updateEmailFolder(emailId, folderName);
+    } catch (error) {
+      console.error("Error moving email to folder:", error);
+      throw new Error(`Failed to move email: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all emails in a specific folder for a user from the database
+   * @param {number} userId - User ID
+   * @param {string} folderName - Name of the folder to fetch emails from
+   * @returns {Promise<Array>} - Array of email objects
+   */
+  async getEmailsByFolder(userId, folderName) {
+    try {
+      const options = {
+        folder: folderName,
+      };
+      return await searchEmails(userId, options);
+    } catch (error) {
+      console.error("Error fetching emails by folder:", error);
+      throw new Error(`Failed to fetch emails from folder: ${error.message}`);
     }
   }
 }

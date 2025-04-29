@@ -135,3 +135,135 @@ export const getDistinctFoldersByUser = (userId) => {
     );
   });
 };
+
+// Update the folder for an email
+export const updateEmailFolder = (emailId, folderName) => {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `UPDATE emails SET folder = ? WHERE id = ?`,
+      [folderName, emailId],
+      function (err) {
+        if (err) reject(err);
+        else {
+          if (this.changes === 0) {
+            reject(new Error("Email not found or no changes made"));
+          } else {
+            resolve({
+              id: emailId,
+              folder: folderName,
+              message: "Email moved successfully",
+            });
+          }
+        }
+      }
+    );
+  });
+};
+
+// Create a custom folder
+export const createCustomFolder = (userId, folderName) => {
+  // Since folders in this system are just labels stored with emails,
+  // we'll just verify the folder name is valid and return a success response
+  // The folder will be created when the first email is moved to it
+  return new Promise((resolve, reject) => {
+    if (!folderName || folderName.trim() === "") {
+      reject(new Error("Folder name cannot be empty"));
+      return;
+    }
+
+    // Create a custom_folders table if it doesn't exist
+    db.run(
+      `
+      CREATE TABLE IF NOT EXISTS custom_folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        folder_name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, folder_name)
+      )
+    `,
+      (err) => {
+        if (err) {
+          console.error("Error creating custom_folders table:", err);
+          reject(err);
+          return;
+        }
+
+        // Insert the new folder name for the user
+        db.run(
+          `INSERT INTO custom_folders (user_id, folder_name) VALUES (?, ?)`,
+          [userId, folderName],
+          function (err) {
+            if (err) {
+              // If error is due to unique constraint, folder already exists
+              if (err.message.includes("UNIQUE constraint failed")) {
+                reject(new Error("Folder already exists"));
+              } else {
+                console.error("Error inserting custom folder:", err);
+                reject(err);
+              }
+            } else {
+              resolve({
+                id: this.lastID,
+                user_id: userId,
+                folder: folderName,
+                message: "Folder created successfully",
+              });
+            }
+          }
+        );
+      }
+    );
+  });
+};
+
+// Get all custom folders for a user
+export const getCustomFolders = (userId) => {
+  return new Promise((resolve, reject) => {
+    // Create a custom_folders table if it doesn't exist
+    db.run(
+      `
+      CREATE TABLE IF NOT EXISTS custom_folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        folder_name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, folder_name)
+      )
+    `,
+      (err) => {
+        if (err) {
+          console.error("Error creating custom_folders table:", err);
+          reject(err);
+          return;
+        }
+
+        // Get all folders from the custom_folders table
+        db.all(
+          `SELECT folder_name FROM custom_folders WHERE user_id = ? ORDER BY folder_name ASC`,
+          [userId],
+          (err, customFolders) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+
+            // Also get folders that actually have emails in them
+            getDistinctFoldersByUser(userId)
+              .then((emailFolders) => {
+                // Combine both lists and remove duplicates
+                const customFolderNames = customFolders.map(
+                  (f) => f.folder_name
+                );
+                const allFolders = [
+                  ...new Set([...customFolderNames, ...emailFolders]),
+                ];
+                resolve(allFolders.sort());
+              })
+              .catch((err) => reject(err));
+          }
+        );
+      }
+    );
+  });
+};
