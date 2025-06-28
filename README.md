@@ -191,19 +191,6 @@ const data = await response.json();
 // data = { message: "Style analysis completed", styleProfile: {...} }
 ```
 
-## Implementation Roadmap
-
-- [x] Basic email reading/sending functionality
-- [x] OAuth2 authentication with Google
-- [x] IMAP/SMTP integration
-- [x] Background email processing
-- [ ] Style analysis engine
-- [ ] Local LLM integration
-- [ ] Response generation pipeline
-- [ ] User style adaptation
-
-## Local LLM Integration (Coming Soon)
-
 The backend is designed to integrate with locally hosted LLM models for:
 
 - Email summarization
