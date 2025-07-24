@@ -1,19 +1,38 @@
-# Testing Voice Search API with Postman
+# Postman Voice Search API Testing Guide
 
-This guide shows how to test the Voice Search API using Postman or similar API testing tools.
+This guide shows how to test the Voice Search API using Postman or similar tools.
 
-## Basic Setup
+---
 
-1. Create a new request in Postman
-2. Set the request type to **POST**
-3. Set the URL to: `http://localhost:5000/email/voice-search`
-4. Go to the "Headers" tab and add:
-   - Key: `Content-Type`
-   - Value: `application/json`
+## Table of Contents
 
-## Example 1: Simple Keyword Search
+1. [Setup](#setup)
+2. [Example Searches](#example-searches)
+   - [Keyword Search](#keyword-search)
+   - [Time-based Search](#time-based-search)
+   - [Sender Search](#sender-search)
+   - [Combined Search](#combined-search)
+   - [Folder Search](#folder-search)
+   - [Result Limit](#result-limit)
+   - [Date Range](#date-range)
+3. [Authentication](#authentication)
+4. [Query Parameters](#query-parameters)
+5. [Expected Response](#expected-response)
+6. [Troubleshooting](#troubleshooting)
+7. [Related API Docs](#related-api-docs)
 
-### Request Body
+---
+
+## Setup
+
+- Create a new POST request to `http://localhost:5000/email/voice-search`
+- Set header: `Content-Type: application/json`
+
+---
+
+## Example Searches
+
+### Keyword Search
 
 ```json
 {
@@ -21,11 +40,7 @@ This guide shows how to test the Voice Search API using Postman or similar API t
 }
 ```
 
-This simulates a user asking for emails containing the keywords "project update".
-
-## Example 2: Time-based Search
-
-### Request Body
+### Time-based Search
 
 ```json
 {
@@ -33,11 +48,7 @@ This simulates a user asking for emails containing the keywords "project update"
 }
 ```
 
-This searches for emails received within the last 7 days.
-
-## Example 3: Search by Sender
-
-### Request Body
+### Sender Search
 
 ```json
 {
@@ -45,11 +56,7 @@ This searches for emails received within the last 7 days.
 }
 ```
 
-This searches for emails from a specific sender.
-
-## Example 4: Combined Search with Multiple Criteria
-
-### Request Body
+### Combined Search
 
 ```json
 {
@@ -57,15 +64,7 @@ This searches for emails from a specific sender.
 }
 ```
 
-This searches for emails:
-
-- From a sender named "Sarah"
-- Containing the keywords "quarterly report"
-- Received during the month of March
-
-## Example 5: Folder-specific Search
-
-### Request Body
+### Folder Search
 
 ```json
 {
@@ -73,11 +72,7 @@ This searches for emails:
 }
 ```
 
-This searches for emails containing the keyword "important" in the spam folder.
-
-## Example 6: Search with Result Limit
-
-### Request Body
+### Result Limit
 
 ```json
 {
@@ -85,11 +80,7 @@ This searches for emails containing the keyword "important" in the spam folder.
 }
 ```
 
-This limits the search results to the 5 most recent emails from "support team".
-
-## Example 7: Date Range Search
-
-### Request Body
+### Date Range
 
 ```json
 {
@@ -97,31 +88,17 @@ This limits the search results to the 5 most recent emails from "support team".
 }
 ```
 
-This searches for emails within a specific date range.
+---
 
-## Testing with Authentication
+## Authentication
 
-If your API requires authentication, add the appropriate auth headers:
+- If required, add `Authorization` header (Bearer or Basic)
 
-### For Bearer Token
-
-Add a header:
-
-- Key: `Authorization`
-- Value: `Bearer your-token-here`
-
-### For Basic Auth
-
-Add a header:
-
-- Key: `Authorization`
-- Value: `Basic base64encoded-username:password`
+---
 
 ## Query Parameters
 
-You can also include optional query parameters:
-
-### Request Body with User Info
+- You can add `email` and `userId` fields:
 
 ```json
 {
@@ -131,56 +108,24 @@ You can also include optional query parameters:
 }
 ```
 
-This specifies:
-
-- The user's email address to search (overrides environment default)
-- The user ID for searching locally stored emails
+---
 
 ## Expected Response
 
-The response will include:
+- See [Voice Search API Guide](docs/VOICE_SEARCH_API_GUIDE.md) for response format and details.
 
-1. The original query
-2. Extracted search parameters
-3. Search results
-
-For example:
-
-```json
-{
-  "query": "find emails from Sarah about quarterly report received in March",
-  "extractedParams": {
-    "keyword": "quarterly report",
-    "startDate": "2023-03-01T00:00:00.000Z",
-    "endDate": "2023-03-31T23:59:59.999Z",
-    "sender": "Sarah",
-    "folder": "INBOX",
-    "limit": 20
-  },
-  "results": [
-    {
-      "id": "abc123",
-      "from": {
-        "text": "Sarah Johnson <sarah.j@example.com>"
-      },
-      "subject": "Q1 Quarterly Report Draft",
-      "date": "2023-03-15T14:25:30.000Z",
-      "snippet": "Please find attached the quarterly report draft for Q1 2023...",
-      "body": "Please find attached the quarterly report draft for Q1 2023. I need your feedback by end of week..."
-    }
-    // More email results...
-  ]
-}
-```
+---
 
 ## Troubleshooting
 
-If you encounter issues:
+- 400: Check JSON and required fields
+- 500: See server logs
+- Empty results: Try simpler queries
+- Auth errors: Check credentials
 
-1. **400 Bad Request**: Check that your JSON is valid and includes the required `voiceText` field.
+---
 
-2. **500 Internal Server Error**: Check the server logs for details. This could indicate an issue with the parsing logic or the search implementation.
+## Related API Docs
 
-3. **Empty Results**: Try simpler queries first to verify that the search is working, then add complexity.
-
-4. **Authentication Errors**: Ensure you're including the correct authentication credentials if required.
+- [Voice Search API Guide](docs/VOICE_SEARCH_API_GUIDE.md)
+- [AI Email API Guide](docs/AI_EMAIL_API_GUIDE.md)

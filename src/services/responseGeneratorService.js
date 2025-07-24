@@ -213,8 +213,16 @@ ${
 
 Write a helpful, clear and professional response that directly addresses the key points in the email.
 Make sure to respond to any questions or requests.
-Don't include any salutations or signatures, as they will be added later.
+
 Your response should be 2-4 paragraphs long.
+
+IMPORTANT FORMATTING INSTRUCTIONS:
+1. Do NOT copy or repeat any lines from the original email in your response
+2. Do NOT include a subject line in your response
+3. Do NOT include any email headers (From:, To:, Subject:, etc.)
+4. Start with a proper greeting like "Dear [Name]," or "Hello [Name],"
+5. End with a proper closing like "Best regards," or "Thank you,"
+6. Only write the body of the email - no headers or metadata
 
 EMAIL RESPONSE:`;
   }
@@ -258,11 +266,97 @@ EMAIL RESPONSE:`;
           .trim();
       }
 
+      // Clean up the response to remove any contamination from original email
+      generatedText = this.cleanResponseText(generatedText);
+
       return generatedText;
     } catch (error) {
       console.error("Error calling Ollama API:", error);
       throw error;
     }
+  }
+
+  /**
+   * Clean the generated response text to remove unwanted elements
+   * @param {string} text - Raw generated text
+   * @returns {string} - Cleaned text
+   */
+  cleanResponseText(text) {
+    if (!text) return "";
+
+    // Split the text into lines
+    const lines = text.split("\n");
+    let cleanedLines = [];
+
+    // Remove any lines that look like they're from the original email or contain subject/forwarding markers
+    const removePatterns = [
+      /^Hi\s*,\s*[A-Z]/i, // Matches lines starting with "Hi, Name" from original email
+      /^Subject:/i, // Matches subject lines
+      /^Fw:/i, // Matches forwarded email markers
+      /^From:/i, // Matches from field
+      /^To:/i, // Matches to field
+      /^Cc:/i, // Matches cc field
+      /^Bcc:/i, // Matches bcc field
+      /^Date:/i, // Matches date field
+      /^Sent:/i, // Matches sent field
+      /^-{3,}/, // Matches email separators (---)
+    ];
+
+    // Find the first greeting line as the starting point for our clean response
+    const greetingPatterns = [
+      /^Dear\s+/i,
+      /^Hello\s+/i,
+      /^Hi\s+/i,
+      /^Greetings/i,
+      /^Good\s+(morning|afternoon|evening)/i,
+      /^Thank\s+you/i,
+    ];
+
+    let foundStart = false;
+    let skipCurrentSection = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // Skip empty lines at the beginning
+      if (!foundStart && line === "") {
+        continue;
+      }
+
+      // Check if this is a line we should remove
+      const shouldRemove = removePatterns.some((pattern) => pattern.test(line));
+
+      // If we find a subject line or other email header, skip everything until we find a greeting
+      if (shouldRemove) {
+        skipCurrentSection = true;
+        continue;
+      }
+
+      // Check if this is a greeting line
+      const isGreeting = greetingPatterns.some((pattern) => pattern.test(line));
+
+      // If we found a greeting, mark that we've found the start and stop skipping
+      if (isGreeting) {
+        foundStart = true;
+        skipCurrentSection = false;
+      }
+
+      // Only include the line if we're not skipping the current section
+      if (!skipCurrentSection) {
+        cleanedLines.push(line);
+      }
+    }
+
+    // If we didn't find any greeting, but there's content, return all non-header content
+    if (!foundStart && lines.length > 0) {
+      return lines
+        .filter(
+          (line) => !removePatterns.some((pattern) => pattern.test(line.trim()))
+        )
+        .join("\n");
+    }
+
+    return cleanedLines.join("\n");
   }
 
   /**

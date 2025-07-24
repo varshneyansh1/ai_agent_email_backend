@@ -331,6 +331,9 @@ router.post("/reply-to-sequence", async (req, res) => {
     const originalSubject = targetEmail.subject;
     const originalDate = targetEmail.date;
 
+    // Clean the email content to remove any potential subject lines or headers
+    const cleanedEmailContent = cleanEmailContent(emailContent);
+
     // Prepare reply subject (add Re: if not already present)
     const replySubject = originalSubject.startsWith("Re:")
       ? originalSubject
@@ -339,7 +342,7 @@ router.post("/reply-to-sequence", async (req, res) => {
     // Generate the AI response
     const response = await responseGeneratorService.generateResponse(
       userIdToUse,
-      emailContent
+      cleanedEmailContent
     );
 
     // Optionally save the email to database for future reference
@@ -383,6 +386,42 @@ router.post("/reply-to-sequence", async (req, res) => {
     });
   }
 });
+
+/**
+ * Clean email content by removing potential subject lines and email headers
+ * @param {string} content - The email content to clean
+ * @returns {string} - Cleaned email content
+ */
+function cleanEmailContent(content) {
+  if (!content) return "";
+
+  // Split into lines
+  const lines = content.split("\n");
+  const cleanedLines = [];
+
+  // Patterns to identify and remove
+  const headerPatterns = [
+    /^Subject:/i,
+    /^From:/i,
+    /^To:/i,
+    /^Cc:/i,
+    /^Bcc:/i,
+    /^Date:/i,
+    /^Sent:/i,
+  ];
+
+  // Process each line
+  for (const line of lines) {
+    // Skip lines that look like email headers
+    if (headerPatterns.some((pattern) => pattern.test(line.trim()))) {
+      continue;
+    }
+
+    cleanedLines.push(line);
+  }
+
+  return cleanedLines.join("\n");
+}
 
 /**
  * Generate a voice-instructed reply to an email
@@ -467,6 +506,9 @@ router.post("/generate-voice-reply", async (req, res) => {
     const originalSubject = targetEmail.subject;
     const originalDate = targetEmail.date;
 
+    // Clean the email content to remove any potential subject lines or headers
+    const cleanedEmailContent = cleanEmailContent(emailContent);
+
     // Prepare reply subject (add Re: if not already present)
     const replySubject = originalSubject.startsWith("Re:")
       ? originalSubject
@@ -475,7 +517,7 @@ router.post("/generate-voice-reply", async (req, res) => {
     // Generate the voice-instructed response
     const voiceReply = await voiceReplyService.generateVoiceReply(
       userIdToUse,
-      emailContent,
+      cleanedEmailContent,
       instructions
     );
 
