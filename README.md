@@ -8,13 +8,13 @@
 
 ### App Screenshots
 
-![Mail Content](docs/screenshots/mail%20content.jpg)
+<img src="docs/screenshots/mail content.jpg" alt="Mail Content" width="400" height="250" />
 
-![Smart Compose](docs/screenshots/smart%20compose.jpg)
+<img src="docs/screenshots/smart compose.jpg" alt="Smart Compose" width="400" height="250" />
 
-![Sent](docs/screenshots/sent.jpg)
+<img src="docs/screenshots/sent.jpg" alt="Sent" width="400" height="250" />
 
-![Drawers](docs/screenshots/drawers.jpg)
+<img src="docs/screenshots/drawers.jpg" alt="Drawers" width="400" height="250" />
 
 ---
 
@@ -149,12 +149,6 @@ Contributions are welcome! Please open issues or pull requests for improvements 
 
 ---
 
-## License
-
-This project is licensed under the ISC License.
-
----
-
 ## Contact
 
-For questions, contact [your-email@example.com].
+For questions, contact varshneyansh9@gmail.com
