@@ -114,7 +114,107 @@ LOCAL_LLM_ENABLED=true
 
 ---
 
-## API Overview
+
+1. Download LLaMA 3.2 model from [Meta AI website](https://llama.meta.com/llama2/)
+2. Use [llamafile](https://github.com/Mozilla-Ocho/llamafile) to run the model locally:
+   ```
+   ./llamafile-server --model llama-3.2-8b.Q5_K_M.gguf --port 8080
+   ```
+3. Set `LOCAL_LLM_ENABLED=true` in your `.env` file
+
+### API Usage Examples
+
+**Generate Email Response**:
+
+```javascript
+// POST /ai/generate-response
+const response = await fetch("/ai/generate-response", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userId: 1,
+    emailContent: "Hi, I would like to schedule a meeting next week...",
+  }),
+});
+const data = await response.json();
+// data = { message: "Response generated successfully", response: "...", confidence: 0.87 }
+```
+
+**Intelligent Reply to a Specific Email**:
+
+```javascript
+// POST /ai/intelligent-reply
+const response = await fetch("/ai/intelligent-reply", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userId: 1,
+    emailId: 42,
+    forceStyleUpdate: false, // Optional: set to true to force style analysis
+  }),
+});
+const data = await response.json();
+/* 
+data = { 
+  message: "Intelligent reply generated successfully", 
+  reply: {
+    to: "sender@example.com",
+    subject: "Re: Meeting Request",
+    body: "...",
+    inReplyTo: 42,
+    confidence: 0.87,
+    originalContent: "..."
+  }
+}
+*/
+```
+
+**Analyze User Style**:
+
+```javascript
+// POST /ai/analyze-style
+const response = await fetch("/ai/analyze-style", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ userId: 1 }),
+});
+const data = await response.json();
+// data = { message: "Style analysis completed", styleProfile: {...} }
+```
+
+The backend is designed to integrate with locally hosted LLM models for:
+
+- Email summarization
+- Response generation
+- Style analysis
+- Conversation context understanding
+
+## AI-Powered Email Search
+
+This repository contains a new voice search feature that allows searching emails using natural language queries.
+
+## Natural Language Email Search
+
+The system now supports searching emails using natural language voice commands. Users can search for emails using queries like:
+
+- "Show me emails from John about the project proposal from last week"
+- "Find emails containing quarterly report received in March"
+- "Show emails from support team with attachments"
+
+### How It Works
+
+The backend processes natural language queries by:
+
+1. Parsing the text to extract search parameters (keywords, dates, senders, folders)
+2. Converting these parameters into a structured search query
+3. Executing the search against email sources (IMAP or local database)
+4. Returning matching results
+
+### Documentation
+
+- [Voice Search API Guide](VOICE_SEARCH_API_GUIDE.md) - Detailed API documentation
+- [Postman Testing Examples](POSTMAN_VOICE_SEARCH_EXAMPLES.md) - Examples for testing with Postman
+
 
 - **Authentication:** `/auth/*`
 - **Email Operations:** `/email/*`
