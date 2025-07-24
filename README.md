@@ -11,18 +11,18 @@
 <table>
   <tr>
     <td>
-      <img src="docs/screenshots/mail content.jpg" alt="Mail Content" width="400" height="350" />
+      <img src="docs/screenshots/mail content.jpg" alt="Mail Content" width="400" height="450" />
     </td>
     <td>
-      <img src="docs/screenshots/smart compose.jpg" alt="Smart Compose" width="400" height="350" />
+      <img src="docs/screenshots/smart compose.jpg" alt="Smart Compose" width="400" height="450" />
     </td>
   </tr>
   <tr>
     <td>
-      <img src="docs/screenshots/sent.jpg" alt="Sent" width="400" height="350" />
+      <img src="docs/screenshots/sent.jpg" alt="Sent" width="400" height="450" />
     </td>
     <td>
-      <img src="docs/screenshots/drawers.jpg" alt="Drawers" width="400" height="350" />
+      <img src="docs/screenshots/drawers.jpg" alt="Drawers" width="400" height="450" />
     </td>
   </tr>
 </table>
