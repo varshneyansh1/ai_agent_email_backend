@@ -8,13 +8,24 @@
 
 ### App Screenshots
 
-<img src="docs/screenshots/mail content.jpg" alt="Mail Content" width="400" height="250" />
-
-<img src="docs/screenshots/smart compose.jpg" alt="Smart Compose" width="400" height="250" />
-
-<img src="docs/screenshots/sent.jpg" alt="Sent" width="400" height="250" />
-
-<img src="docs/screenshots/drawers.jpg" alt="Drawers" width="400" height="250" />
+<table>
+  <tr>
+    <td>
+      <img src="docs/screenshots/mail content.jpg" alt="Mail Content" width="400" height="350" />
+    </td>
+    <td>
+      <img src="docs/screenshots/smart compose.jpg" alt="Smart Compose" width="400" height="350" />
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <img src="docs/screenshots/sent.jpg" alt="Sent" width="400" height="350" />
+    </td>
+    <td>
+      <img src="docs/screenshots/drawers.jpg" alt="Drawers" width="400" height="350" />
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -113,7 +124,6 @@ LOCAL_LLM_ENABLED=true
   ```
 
 ---
-
 
 1. Download LLaMA 3.2 model from [Meta AI website](https://llama.meta.com/llama2/)
 2. Use [llamafile](https://github.com/Mozilla-Ocho/llamafile) to run the model locally:
@@ -214,7 +224,6 @@ The backend processes natural language queries by:
 
 - [Voice Search API Guide](VOICE_SEARCH_API_GUIDE.md) - Detailed API documentation
 - [Postman Testing Examples](POSTMAN_VOICE_SEARCH_EXAMPLES.md) - Examples for testing with Postman
-
 
 - **Authentication:** `/auth/*`
 - **Email Operations:** `/email/*`
