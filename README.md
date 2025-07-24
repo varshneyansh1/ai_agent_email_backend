@@ -1,128 +1,119 @@
 # AI Email Assistant Backend
 
-A Node.js/Express backend for an AI-powered email assistant application that can read, analyze, and respond to emails using local LLM capabilities.
+---
+
+## 📽️ Project Demo
+
+[Watch the demo video on Google Drive](https://drive.google.com/file/d/19woPUuQqYcCs3xAMSEkY3KOMH_Dqy49X/view?usp=drive_link)
+
+### App Screenshots
+
+![Mail Content](docs/screenshots/mail%20content.jpg)
+
+![Smart Compose](docs/screenshots/smart%20compose.jpg)
+
+![Sent](docs/screenshots/sent.jpg)
+
+![Drawers](docs/screenshots/drawers.jpg)
+
+---
+
+## Overview
+
+AI Email Assistant Backend is a Node.js/Express backend for an AI-powered email assistant. It can read, analyze, search, and respond to emails using local LLM (Large Language Model) capabilities, with support for natural language and voice commands.
+
+---
 
 ## Features
 
-- 📧 Email integration with Gmail via OAuth2
-- 🔒 Secure authentication with Google OAuth
-- 📁 Email fetching via IMAP
-- ✉️ Email sending via SMTP
-- 💾 Local data storage with SQLite
-- 🔄 Background processing with Bull and Redis
-- 🧠 Integration ready for local LLM models
+- 📧 Gmail integration (OAuth2, IMAP, SMTP)
+- 🔒 Secure Google authentication
+- 💾 Local SQLite storage
+- 🔄 Background processing (Bull + Redis)
+- 🧠 Local LLM/AI-powered:
+  - Email response generation
+  - Style analysis & adaptation
+  - Voice-instructed replies
+  - Natural language/voice search
+- 🌐 RESTful API endpoints
+- 🗣️ Multilingual support for instructions
+
+---
+
+## Architecture Overview
+
+- **Node.js + Express**: REST API server
+- **IMAP/SMTP**: Email fetching/sending
+- **Google OAuth2**: Secure authentication
+- **SQLite**: Local data storage
+- **Bull + Redis**: Background job queue
+- **Local LLM (LLaMA 3.1) or HuggingFace**: AI/ML for email response, style, and search
+- **Modular Services**: For email, AI, style, translation, and voice
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a detailed diagram and explanation.
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18.x or higher
-- Redis server (for job queues)
-- Optional: Local LLM model for AI capabilities
+- Node.js 18+
+- Redis server
+- (Optional) Local LLM (LLaMA 3.2) for full AI features
 
 ### Installation
 
-1. Clone the repository
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/email-ai-backend.git
+   cd email-ai-backend
+   ```
 
-```bash
-git clone https://github.com/yourusername/email-ai-backend.git
-cd email-ai-backend
-```
-
-2. Install dependencies
-
-```bash
+````
+2. **Install dependencies**
+   ```bash
 npm install
-```
+````
 
-3. Create a `.env` file in the root directory with the following variables:
+3. **Configure environment variables**
+   - Copy `.env.example` (if available) or create `.env`:
+   ```
+   PORT=5000
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   CALLBACK_URL=http://localhost:5000/auth/google/callback
+   SESSION_SECRET=your_session_secret
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   ```
 
-```
-PORT=5000
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-CALLBACK_URL=http://localhost:5000/auth/google/callback
-SESSION_SECRET=your_session_secret
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
+# AI/LLM
 
-4. Set up Google OAuth credentials:
-   - Go to [Google Developer Console](https://console.developers.google.com/)
-   - Create a new project
-   - Enable the Gmail API
-   - Create OAuth credentials
-   - Add the OAuth scopes for Gmail
-   - Set the authorized redirect URL to match `CALLBACK_URL` in your `.env` file
-
-### Running the Application
-
-Development mode:
-
-```bash
-npm run dev
-```
-
-Production mode:
-
-```bash
-npm start
-```
-
-## API Endpoints
-
-### Authentication
-
-- `GET /auth/google` - Initiate Google OAuth login
-- `GET /auth/google/callback` - OAuth callback
-- `GET /auth/profile` - Get user profile
-- `GET /auth/logout` - Logout user
-- `DELETE /auth/account` - Delete user account
-
-### Email Operations
-
-- `GET /email/inbox` - Get user's inbox emails
-- `GET /email/folder/:folderName` - Get emails from specific folder
-- `POST /email/send` - Send an email
-- `POST /email/reply` - Reply to an email
-- `POST /email/save` - Save an email to database
-- `GET /email/saved` - Get saved emails
-- `DELETE /email/:id` - Delete an email
-
-## AI Email Response Generation
-
-The application includes AI-powered email response generation with the following features:
-
-1. **Style Analysis**: Analyzes user's previous emails to create a personal writing style profile
-
-   - Extracts common phrases, greeting styles, and signatures
-   - Measures tone, formality, and average sentence length
-   - Generates semantic embeddings of the user's writing style
-
-2. **Response Generation**: Uses a locally hosted LLaMA 3.2 model (or HuggingFace API as fallback)
-
-   - Generates draft responses to incoming emails
-   - Post-processes drafts by applying the user's style profile
-   - Returns both the generated response and a confidence score
-
-3. **API Endpoints**:
-   - `POST /ai/generate-response`: Generate a styled email response
-   - `POST /ai/analyze-style`: Analyze a user's writing style
-   - `GET /ai/style-profile/:userId`: Get a user's style profile
-   - `POST /ai/intelligent-reply`: Generate a complete reply to a specific email with style matching
-
-### Configuration
-
-To use the AI features, add the following to your `.env` file:
-
-```
-# AI Configuration
 HUGGINGFACE_API_KEY=your-huggingface-api-key
 LLAMA_API_URL=http://localhost:8080/completion
-LOCAL_LLM_ENABLED=true  # Set to true if using local LLaMA server
-```
+LOCAL_LLM_ENABLED=true
 
-### Setting Up LLaMA 3.2 Locally
+````
+4. **Set up Google OAuth** ([see detailed guide](docs/SETUP_GUIDE.md))
+5. **(Optional) Set up Local LLaMA** ([see detailed guide](docs/SETUP_GUIDE.md))
+
+---
+
+## Running the Application
+
+- **Development:**
+  ```bash
+  npm run dev
+````
+
+- **Production:**
+  ```bash
+  npm start
+  ```
+
+---
+
 
 1. Download LLaMA 3.2 model from [Meta AI website](https://llama.meta.com/llama2/)
 2. Use [llamafile](https://github.com/Mozilla-Ocho/llamafile) to run the model locally:
@@ -224,38 +215,46 @@ The backend processes natural language queries by:
 - [Voice Search API Guide](VOICE_SEARCH_API_GUIDE.md) - Detailed API documentation
 - [Postman Testing Examples](POSTMAN_VOICE_SEARCH_EXAMPLES.md) - Examples for testing with Postman
 
+
+- **Authentication:** `/auth/*`
+- **Email Operations:** `/email/*`
+- **AI/LLM:** `/ai/*`
+- **Voice Search:** `/email/voice-search`
+
+See detailed API docs:
+
+- [AI Email API Guide](docs/AI_EMAIL_API_GUIDE.md)
+- [Voice Search API Guide](docs/VOICE_SEARCH_API_GUIDE.md)
+- [Compose Email API](docs/compose-email-api.md)
+- [Voice Reply API](docs/voice-reply-api.md)
+
+---
+
 ## Testing the API
 
-The voice search API is available at:
+- Use [Postman examples](POSTMAN_TESTING.md, POSTMAN_VOICE_SEARCH_EXAMPLES.md) for quick testing.
+- Example: Voice search
+  ```bash
+  curl -X POST http://localhost:5000/email/voice-search \
+    -H "Content-Type: application/json" \
+    -d '{"voiceText": "show me emails from John about project update received last week"}'
+  ```
+- For local testing scripts, see `src/test-*.js` files.
 
-```
-POST /email/voice-search
-```
+---
 
-Example request body:
+## Contributing
 
-```json
-{
-  "voiceText": "show me emails from John about project update received last week"
-}
-```
+Contributions are welcome! Please open issues or pull requests for improvements or bug fixes.
 
-To test the parsing functionality without performing an actual search, use:
-
-```
-node src/test-voice-search.js "your search query here"
-```
-
-## Features
-
-The voice search supports:
-
-- **Keyword extraction**: Find emails containing specific terms
-- **Date range parsing**: Search by relative dates ("last week", "yesterday", "this month") or specific dates
-- **Sender filtering**: Find emails from specific people
-- **Folder targeting**: Search in specific email folders (inbox, sent, spam, etc.)
-- **Result limiting**: Specify the number of results to return
+---
 
 ## License
 
-ISC
+This project is licensed under the ISC License.
+
+---
+
+## Contact
+
+For questions, contact [your-email@example.com].
